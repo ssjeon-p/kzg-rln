@@ -95,7 +95,7 @@ impl RLN {
         messages.push((message_hash, evaluation));
 
         if messages.len() > self.limit as usize {
-            let key = Self::recover_key(messages);
+            let key = Self::recover_key(messages); 
             let pubkey = KEYS.1.g.mul(key);
             assert!(self.shares.get(&pubkey).is_some());
 
