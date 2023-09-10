@@ -3,18 +3,13 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::type_complexity)]
 
-use std::{collections::HashMap, time::SystemTime};
+use std::collections::HashMap;
 
 use ark_bls12_381::*;
 use ark_ec::{AffineCurve, PairingEngine};
 use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
 use ark_poly_commit::{kzg10::*, PCRandomness};
 use ark_std::{test_rng, UniformRand};
-
-use halo2_proofs::{
-    pasta::Fp,
-    dev::MockProver, poly,
-};
 
 use once_cell::sync::Lazy;
 
@@ -52,31 +47,16 @@ static KEYS: Lazy<(Powers<Bls12_381>, VerifierKey<Bls12_381>)> = Lazy::new(|| {
 struct RLN {
     limit: u8,
     shares: HashMap<Commitment<Bls12_381>, Vec<(Fr, Fr)>>,
-    tree: circuit::tree,
+    tree: circuit::type_tree,
 }
 
 impl RLN {
-    fn new(limit: u8) -> Self {
+    fn new_RLN_with_user(limit: u8) -> Self {
         Self {
             limit,
             shares: HashMap::new(),
-            tree: circuit::tree::default(),
+            tree: circuit::type_tree::default(),
         }
-    }
-
-    // add user and return path
-    fn add_user(
-        &self,
-        sk: Fr,
-    ) -> Vec<Fr> {
-        Vec::<Fr>::new()
-    }
-
-    fn delete_user(
-        &self,
-        sk: Fr
-    ) {
-
     }
 
     fn register_epoch(
@@ -86,7 +66,6 @@ impl RLN {
     ) {
         zkp.assert_satisfied();
         self.shares.insert(comm, vec![]);
-
     }
 
     fn new_message(
@@ -158,8 +137,6 @@ impl User {
         &self,
         rln: &mut RLN
     ) {
-        let cur_time = SystemTime::now();
-
         let rng = &mut test_rng();
         let mut polynomial = UniPoly_381::rand((rln.limit + 1) as usize, rng);
         *polynomial.first_mut().unwrap() = self.sk;
@@ -169,11 +146,6 @@ impl User {
         let zkp = circuit::create_zkp(self.polynomial, self.comm);
 
         rln.register_epoch(zkp, comm);
-
-        println!(
-            "Registration time (milliseconds): {}",
-            cur_time.elapsed().unwrap().as_millis()
-        );
     }
 
     fn send(
@@ -181,7 +153,6 @@ impl User {
         message_hash: Fr,
         rln: &mut RLN
     ) {
-        let cur_time = SystemTime::now();
         let evaluation = self.polynomial.evaluate(&message_hash);
         let proof = KZG::open(
             &KEYS.0,
@@ -190,11 +161,6 @@ impl User {
             &Randomness::<Fr, UniPoly_381>::empty(),
         )
         .expect("Cannot make proof");
-
-        println!(
-            "Send Message Time (microseconds): {}",
-            cur_time.elapsed().unwrap().as_micros()
-        );
 
         rln.new_message(self.comm, message_hash, evaluation, proof);
     }
