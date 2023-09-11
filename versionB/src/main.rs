@@ -5,11 +5,10 @@
 
 use std::collections::HashMap;
 
-use ark_bls12_381::*;
-use ark_ec::{AffineCurve, PairingEngine};
-use ark_poly::{univariate::DensePolynomial, Polynomial, UVPolynomial};
-use ark_poly_commit::{kzg10::*, PCRandomness};
-use ark_std::{test_rng, UniformRand};
+use halo2::{
+    poly::kzg::*,
+
+};
 
 use once_cell::sync::Lazy;
 

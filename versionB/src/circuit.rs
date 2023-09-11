@@ -32,7 +32,10 @@ use super::{
     UniPoly_381,
     Commitment,
     Bls12_381,
-}
+};
+
+use halo2::poly::kzg::commitment::*;
+
 
 
 
