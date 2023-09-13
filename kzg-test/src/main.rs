@@ -24,5 +24,4 @@ fn main() {
     let poly = domain.coeff_from_vec(values);
     let commit = keys.commit(&poly, halo2::poly::commitment::Blind::default());
     let prover = ProverSHPLONK::new(&keys);
-    let proof = prover.create_proof();
 }
