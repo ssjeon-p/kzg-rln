@@ -1,4 +1,5 @@
 use halo2::halo2curves::bn256::Fr;
+use halo2::arithmetic::Field;
 
 pub fn determinant(mut matrix: Vec<Vec<Fr>>) -> Fr {
     let n = matrix.len();
@@ -27,7 +28,7 @@ pub fn determinant(mut matrix: Vec<Vec<Fr>>) -> Fr {
         det *= pivot;
 
         for j in (i + 1)..n {
-            let factor = matrix[j][i] / pivot;
+            let factor = matrix[j][i] * Fr::invert(&pivot).unwrap();
             for k in (i + 1)..n {
                 matrix[j][k] = matrix[j][k] - factor * matrix[i][k];
             }
