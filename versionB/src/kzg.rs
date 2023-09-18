@@ -5,8 +5,10 @@ use halo2::{
     arithmetic::Field,
 };
 
-struct proof {
-
+struct KZG {
+    keys: ParamsKZG<Bn256>,
+    domain: EvaluationDomain<Fr>,
+    
 }
 
 pub fn commit(
@@ -42,7 +44,10 @@ pub fn create_proof(
 }
 
 pub fn verify_proof(
-
+    keys: &ParamsKZG<Bn256>,
+    proof: G1Affine,
+    commit: G1Affine,
+    b: Fr,
 ) -> bool {
 
 }
