@@ -21,7 +21,7 @@ pub fn commit(
 }
 
 // compute phi(x) = (f(x)-f(b))/(x-b), return g^{phi(alpha)}
-pub fn create_proof(
+pub fn witness_polynomial(
     keys: &ParamsKZG<Bn256>,
     poly: Vec<Fr>,
     b: Fr,
@@ -53,7 +53,7 @@ pub fn verify_proof(
 }
 
 pub fn pairing_check (
-    &keys: ParamsKZG<Bn256>,
+    keys: &ParamsKZG<Bn256>,
     pairing,
 ) {
     Bn256::pairing(&G1Affine::identity(), &G2Affine::identity());
