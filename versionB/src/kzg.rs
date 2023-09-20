@@ -1,15 +1,9 @@
-use std::ops::SubAssign;
-
 use halo2::{
     poly::{kzg::commitment::ParamsKZG,
     commitment::{ParamsProver, Blind}, EvaluationDomain},
     halo2curves::{bn256::{Fr, Bn256, G1Affine, G2Affine}, pairing::Engine, group::Curve},
-    arithmetic::{Field, eval_polynomial},
+    arithmetic::Field,
 };
-
-struct KZG {
-    keys: ParamsKZG<Bn256>,    
-}
 
 pub fn commit(
     keys: &ParamsKZG<Bn256>,
@@ -26,11 +20,9 @@ pub fn witness_polynomial(
     poly: Vec<Fr>,
     b: Fr,
 ) -> G1Affine {
-    let eval = eval_polynomial(&poly, b); 
-    let mut ppo = poly.clone();
     let a = poly.into_iter();
 
-    let mut q = vec![Fr::ZERO; a.len()];
+    let mut q = vec![Fr::ZERO; a.len() - 1];
 
     let mut tmp = Fr::ZERO;
     for (q, r) in q.iter_mut().rev().zip(a.rev()) {
@@ -40,19 +32,7 @@ pub fn witness_polynomial(
         tmp = lead_coeff;
         tmp *= -b;
     }
-    q[3] = Fr::ZERO;
-
-    let mul = vec![
-        -b * q[0],
-        -b * q[1] + q[0],
-        -b * q[2] + q[1],
-        q[2],
-    ];
-    ppo[0] += eval;
-    assert_eq!(mul, ppo);
-    
-
-
+    q.push(Fr::ZERO);
     commit(&keys, q)
 }
 
@@ -82,20 +62,21 @@ mod test {
     fn test_kzg() {
         let rng = &mut thread_rng();
         let keys = ParamsKZG::<Bn256>::new(2);
-        let domain = EvaluationDomain::<Fr>::new(1, 2);
+
         let coeffs = vec![
             Fr::random(rng.clone()),
             Fr::random(rng.clone()),
             Fr::random(rng.clone()),
             Fr::random(rng.clone()),
         ];
+
         let commit = commit(&keys, coeffs.clone());
         
-        let b = Fr::ZERO;
+        let b = Fr::random(rng.clone());
         let proof = witness_polynomial(&keys, coeffs.clone(), b);
 
         let eval = eval_polynomial(&coeffs, b);
         
-        //assert!(verify_proof(&keys, proof, commit, b, eval));
+        assert!(verify_proof(&keys, proof, commit, b, eval));
     }
 }
