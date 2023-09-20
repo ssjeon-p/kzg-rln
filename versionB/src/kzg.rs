@@ -2,8 +2,18 @@ use halo2::{
     poly::{kzg::commitment::ParamsKZG,
     commitment::{ParamsProver, Blind}, EvaluationDomain},
     halo2curves::{bn256::{Fr, Bn256, G1Affine, G2Affine}, pairing::Engine, group::Curve},
-    arithmetic::Field,
+    arithmetic::{Field, best_multiexp},
 };
+
+pub fn multiexp(
+    keys: &ParamsKZG<Bn256>,
+    poly: Vec<Fr>,
+) -> G1Affine {
+    let g = keys.get_g().to_vec();
+    assert!(g.len() > poly.len());
+
+    best_multiexp(&poly, &g).to_affine()
+}
 
 pub fn commit(
     keys: &ParamsKZG<Bn256>,
@@ -38,16 +48,16 @@ pub fn witness_polynomial(
 
 pub fn verify_proof(
     keys: &ParamsKZG<Bn256>,
-    proof: G1Affine,
-    commit: G1Affine,
+    proof: &G1Affine,
+    commit: &G1Affine,
     b: Fr,
     eval: Fr,
 ) -> bool {
     let g = G1Affine::generator();
     let h = G2Affine::generator();
-    let lhs = Bn256::pairing(&commit, &h);
+    let lhs = Bn256::pairing(commit, &h);
     let h_to_alpha_minus_b = (keys.s_g2() - h * b).to_affine();
-    let rhs = Bn256::pairing(&proof, &h_to_alpha_minus_b) + Bn256::pairing(&g, &h) * eval;
+    let rhs = Bn256::pairing(proof, &h_to_alpha_minus_b) + Bn256::pairing(&g, &h) * eval;
 
     lhs == rhs
 }
@@ -71,6 +81,8 @@ mod test {
         ];
 
         let commit = commit(&keys, coeffs.clone());
+        let comm2 = multiexp(&keys, coeffs.clone());
+        assert!(commit == comm2);
         
         let b = Fr::random(rng.clone());
         let proof = witness_polynomial(&keys, coeffs.clone(), b);

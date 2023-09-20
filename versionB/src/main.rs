@@ -3,16 +3,13 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::type_complexity)]
 
-use std::collections::HashMap;
-
 use halo2::{
-    halo2curves::bn256::{G1Affine, Fr, Bn256, G1},
+    halo2curves::bn256::{G1Affine, Fr, Bn256},
     dev::MockProver,
     poly::{kzg::commitment::ParamsKZG, commitment::ParamsProver},
     arithmetic::{Field, self},
 };
 use rand::thread_rng;
-
 
 mod circuit;
 mod linalg;
@@ -20,7 +17,7 @@ mod kzg;
 
 struct RLN {
     limit: u8,
-    shares: HashMap<G1Affine, Vec<(Fr, Fr)>>,
+    shares: Vec<(G1Affine, Vec<(Fr, Fr)>)>,
     keys: ParamsKZG<Bn256>
 }
 
@@ -31,7 +28,7 @@ impl RLN {
         let keys = ParamsKZG::<Bn256>::new(2);
         Self {
             limit,
-            shares: HashMap::new(),
+            shares: Vec::new(),
             keys: keys,
         }
     }
@@ -42,24 +39,28 @@ impl RLN {
         comm: G1Affine
     ) {
         zkp.assert_satisfied();
-        self.shares.insert(comm, vec![]);
+        self.shares.push((comm, vec![]));
     }
 
     fn new_message(
         &mut self,
-        comm: G1Affine,
+        comm: &G1Affine,
         message_hash: Fr,
         evaluation: Fr,
-        proof: G1Affine,
+        proof: &G1Affine,
     ) {
         assert!(kzg::verify_proof(&self.keys, proof, comm, message_hash, evaluation));
 
-        let mut messages = self.shares.get_mut(&comm).unwrap();
+        let mut index = 0;
+        let mut messages = self.shares.iter().find(|&&(commit, _)| {
+            index += 1;
+            commit == *comm
+        }).unwrap().1.clone();
         messages.push((message_hash, evaluation));
 
         if messages.len() > self.limit as usize {
-            let sk = Self::recover_key(&messages);
-            self.shares.remove(&comm);
+            let _sk = Self::recover_key(&messages);
+            let _ = self.shares.swap_remove(index-1);
         }
     }
     
@@ -117,7 +118,7 @@ impl User {
 
         let comm = kzg::commit(&rln.keys, poly.clone());
         let g = rln.keys.get_g().to_vec();
-        let zkp = circuit::create_zkp(self.polynomial, self.comm, g);
+        let zkp = circuit::create_zkp(self.polynomial.clone(), self.comm, g);
 
         rln.verify_epoch_opening(zkp, comm);
     }
@@ -128,9 +129,9 @@ impl User {
         rln: &mut RLN
     ) {
         let evaluation = arithmetic::eval_polynomial(&self.polynomial, message_hash);
-        let proof = kzg::witness_polynomial(&rln.keys, self.polynomial, message_hash);
+        let proof = kzg::witness_polynomial(&rln.keys, self.polynomial.clone(), message_hash);
 
-        rln.new_message(self.comm, message_hash, evaluation, proof);
+        rln.new_message(&self.comm, message_hash, evaluation, &proof);
     }
 }
 
