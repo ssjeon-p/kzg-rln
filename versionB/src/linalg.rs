@@ -1,5 +1,5 @@
-use halo2::halo2curves::bn256::Fr;
 use halo2::arithmetic::Field;
+use halo2::halo2curves::bn256::Fr;
 
 pub fn determinant(mut matrix: Vec<Vec<Fr>>) -> Fr {
     let n = matrix.len();
@@ -7,8 +7,8 @@ pub fn determinant(mut matrix: Vec<Vec<Fr>>) -> Fr {
 
     for i in 0..n {
         let mut pivot_row = i;
-        for j in (i + 1)..n {
-            if matrix[j][i] != Fr::from(0) {
+        for (j, col) in matrix.iter().enumerate().skip(i) {
+            if col[i] != Fr::from(0) {
                 pivot_row = j;
                 break;
             }
