@@ -4,6 +4,8 @@
 #![allow(clippy::type_complexity)]
 #![allow(dead_code)]
 
+use std::vec;
+
 use halo2::{
     arithmetic::{eval_polynomial, Field},
     dev::MockProver,
@@ -119,7 +121,7 @@ impl User {
 
     fn register_epoch(&mut self, rln: &mut RLN) {
         let rng = &mut thread_rng();
-        self.polynomial.push(self.sk);
+        self.polynomial = vec![self.sk];
         for _ in 0..rln.limit {
             self.polynomial.push(Fr::random(rng.clone()));
         }
@@ -161,9 +163,16 @@ mod test {
             user.send(Fr::random(rng.clone()), &mut rln);
         }
         assert!(rln.shares.is_empty());
+
+        //epoch 2
+        user.register_epoch(&mut rln);
+        for _ in 0..limit + 1 {
+            user.send(Fr::random(rng.clone()), &mut rln);
+        }
+        assert!(rln.shares.is_empty());
     }
 }
 
 fn main() {
-    println!("Hello, world!");
+    
 }
