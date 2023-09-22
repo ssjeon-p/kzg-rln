@@ -99,8 +99,7 @@ impl<const NUMBER_OF_LIMBS: usize, const BIT_LEN_LIMB: usize> Circuit<Fr>
                 )> = (0..self.coeffs.len())
                     .map(|i| {
                         let coeff = maingate.assign_value(ctx, Value::known(self.coeffs[i]))?;
-                        let setup =
-                            ecc_chip.assign_point(ctx, Value::known(self.setup[i]))?;
+                        let setup = ecc_chip.assign_point(ctx, Value::known(self.setup[i]))?;
                         Ok((setup, coeff))
                     })
                     .collect::<Result<_, Error>>()?;
@@ -168,7 +167,7 @@ mod tests {
             Fr::random(rng.clone()),
             Fr::random(rng.clone()),
         ];
-        let comm = commit(&keys, coeffs.clone());
+        let comm = commit(&keys, &coeffs);
         let g = keys.get_g()[0..4].to_vec();
         let test_circuit = Mycircuit::<NUMBER_OF_LIMBS, BIT_LEN_LIMB> { coeffs, setup: g };
 

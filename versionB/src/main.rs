@@ -7,9 +7,13 @@
 use halo2::{
     arithmetic::{eval_polynomial, Field},
     dev::MockProver,
-    halo2curves::bn256::{Bn256, Fr, G1Affine},
+    halo2curves::{
+        bn256::{Bn256, Fr, G1Affine, G2Affine, Gt},
+        pairing::Engine,
+    },
     poly::{commitment::ParamsProver, kzg::commitment::ParamsKZG},
 };
+
 use rand::thread_rng;
 
 mod circuit;
@@ -18,18 +22,13 @@ mod linalg;
 
 struct RLN {
     limit: u8,
-    shares: Vec<(G1Affine, Vec<(Fr, Fr)>)>,
+    shares: Vec<(G1Affine, Vec<(Fr, Fr)>, Gt)>, // commit, (message, evaluation), pairing_cache
     keys: ParamsKZG<Bn256>,
 }
 
 impl RLN {
     fn new(limit: u8) -> Self {
-        let mut pow = 0;
-        while (1 << pow) <= limit {
-            pow += 1;
-        }
-
-        let keys = ParamsKZG::<Bn256>::new(pow);
+        let keys = ParamsKZG::<Bn256>::new(log2_floor(limit));
         Self {
             limit,
             shares: Vec::new(),
@@ -37,9 +36,10 @@ impl RLN {
         }
     }
 
-    fn verify_epoch_opening(&mut self, zkp: MockProver<Fr>, comm: G1Affine) {
+    fn verify_epoch_opening(&mut self, zkp: MockProver<Fr>, comm: &G1Affine) {
         zkp.assert_satisfied();
-        self.shares.push((comm, vec![]));
+        let pairing_cache = Bn256::pairing(comm, &G2Affine::generator());
+        self.shares.push((*comm, vec![], pairing_cache));
     }
 
     fn new_message(
@@ -49,22 +49,20 @@ impl RLN {
         evaluation: Fr,
         proof: &G1Affine,
     ) -> Option<Fr> {
+        let index = self
+            .shares
+            .iter()
+            .position(|(share_commit, _, _)| *share_commit == *comm)
+            .unwrap();
+        self.shares[index].1.push((message_hash, evaluation));
+
         assert!(kzg::verify_proof(
             &self.keys,
             proof,
-            comm,
             message_hash,
-            evaluation
+            evaluation,
+            &self.shares[index].2,
         ));
-
-        let mut index = 0;
-        for _ in self.shares.iter() {
-            if self.shares[0].0 == *comm {
-                break;
-            }
-            index += 1;
-        }
-        self.shares[index].1.push((message_hash, evaluation));
 
         if self.shares[index].1.len() > self.limit as usize {
             let sk = Self::recover_key(&self.shares[index].1);
@@ -74,18 +72,18 @@ impl RLN {
         None
     }
 
-    fn recover_key(shares: &Vec<(Fr, Fr)>) -> Fr {
+    fn recover_key(shares: &[(Fr, Fr)]) -> Fr {
         let size = shares.len();
         let vec_x: Vec<Fr> = shares.iter().map(|a| a.0).collect();
         let vec_y: Vec<Fr> = shares.iter().map(|a| a.1).collect();
 
         let mut matrix: Vec<Vec<Fr>> = vec![vec![Fr::from(1); size]];
-        matrix.push(vec_x.clone());
+        matrix.push(vec_x);
 
         for i in 2..size {
             let next_row = matrix[i - 1]
                 .iter()
-                .zip(&vec_x)
+                .zip(&matrix[1])
                 .map(|(&a, &b)| a * b)
                 .collect();
             matrix.push(next_row);
@@ -106,7 +104,7 @@ struct User {
 }
 
 impl User {
-    fn new(sk: Fr, rln: &mut RLN) -> Self {
+    fn new(sk: Fr) -> Self {
         let polynomial = vec![];
         let comm = G1Affine::default();
 
@@ -124,12 +122,11 @@ impl User {
             self.polynomial.push(Fr::random(rng.clone()));
         }
 
-        self.comm = kzg::commit(&rln.keys, self.polynomial.clone());
+        self.comm = kzg::commit(&rln.keys, &self.polynomial);
         let g = rln.keys.get_g()[0..(rln.limit + 1) as usize].to_vec();
-        // let zkp = circuit::create_zkp(self.polynomial.clone(), &self.comm, g);
+        let zkp = circuit::create_zkp(self.polynomial.clone(), &self.comm, g);
 
-        // rln.verify_epoch_opening(zkp, self.comm);
-        rln.shares.push((self.comm, vec![]));
+        rln.verify_epoch_opening(zkp, &self.comm);
     }
 
     fn send(&self, message_hash: Fr, rln: &mut RLN) {
@@ -137,10 +134,18 @@ impl User {
         let proof = kzg::witness_polynomial(&rln.keys, self.polynomial.clone(), message_hash);
 
         if let Some(sk) = rln.new_message(&self.comm, message_hash, evaluation, &proof) {
-            println!("recover key success");
             assert_eq!(sk, self.sk);
+            println!("recover key success");
         }
     }
+}
+
+fn log2_floor(num: u8) -> u32 {
+    let mut pow = 0;
+    while (1 << pow) <= num {
+        pow += 1;
+    }
+    pow
 }
 
 #[cfg(test)]
@@ -153,7 +158,7 @@ mod test {
         let mut rln = RLN::new(limit);
 
         let rng = thread_rng();
-        let mut user = User::new(Fr::random(rng.clone()), &mut rln);
+        let mut user = User::new(Fr::random(rng.clone()));
 
         // epoch 1
         user.register_epoch(&mut rln);
@@ -164,6 +169,4 @@ mod test {
     }
 }
 
-fn main() {
-    println!("Hello, world!");
-}
+fn main() {}
