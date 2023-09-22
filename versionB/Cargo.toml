@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 halo2 = { package = "halo2_proofs", git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v2023_04_20" }
-eigentrust-zk = { git = "https://github.com/eigen-trust/protocol" }
 rand = "0.8"
 ecc = { git = "https://github.com/privacy-scaling-explorations/halo2wrong" }
 num-bigint = { version = "0.4.0", features = ["rand"] }

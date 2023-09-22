@@ -1,5 +1,4 @@
 #![allow(non_snake_case)]
-#![allow(non_camel_case_types)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::type_complexity)]
 #![allow(dead_code)]
@@ -20,7 +19,6 @@ use rand::thread_rng;
 
 mod circuit;
 mod kzg;
-mod linalg;
 
 struct RLN {
     limit: u8,
@@ -68,7 +66,7 @@ impl RLN {
 
         if self.shares[index].1.len() > self.limit as usize {
             let sk = Self::recover_key(&self.shares[index].1);
-            let _ = self.shares.swap_remove(index);
+            self.shares.swap_remove(index);
             return Some(sk);
         }
         None
@@ -91,12 +89,49 @@ impl RLN {
             matrix.push(next_row);
         }
 
-        let denominator = linalg::determinant(matrix.clone());
-        _ = std::mem::replace(&mut matrix[0], vec_y);
-        let numerator = linalg::determinant(matrix);
+        let denominator = determinant(matrix.clone());
+        matrix[0] = vec_y;
+        let numerator = determinant(matrix);
 
         numerator * Fr::invert(&denominator).unwrap()
     }
+}
+
+fn determinant(mut matrix: Vec<Vec<Fr>>) -> Fr {
+    let n = matrix.len();
+    let mut det = Fr::from(1);
+
+    for i in 0..n {
+        let mut pivot_row = i;
+        for (j, col) in matrix.iter().enumerate().skip(i) {
+            if col[i] != Fr::from(0) {
+                pivot_row = j;
+                break;
+            }
+        }
+
+        if pivot_row != i {
+            matrix.swap(i, pivot_row);
+            det = -det;
+        }
+
+        let pivot = matrix[i][i];
+
+        if pivot == Fr::from(0) {
+            return Fr::from(0);
+        }
+
+        det *= pivot;
+
+        for j in (i + 1)..n {
+            let factor = matrix[j][i] * Fr::invert(&pivot).unwrap();
+            for k in (i + 1)..n {
+                matrix[j][k] = matrix[j][k] - factor * matrix[i][k];
+            }
+        }
+    }
+
+    det
 }
 
 struct User {
