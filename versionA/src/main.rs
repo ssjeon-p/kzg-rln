@@ -103,21 +103,25 @@ impl RLN {
         }
     }
 
-    fn recover_key(shares: &Vec<(Fr, Fr)>) -> Fr {
+    fn recover_key(shares: &[(Fr, Fr)]) -> Fr {
         let size = (EPOCH_LIMIT + 1) as usize;
-        let vec_x: Vec<Fr> = shares.iter().map(|a| {a.0}).collect();
-        let vec_y: Vec<Fr> = shares.iter().map(|a| {a.1}).collect();
+        let vec_x: Vec<Fr> = shares.iter().map(|a| a.0).collect();
+        let vec_y: Vec<Fr> = shares.iter().map(|a| a.1).collect();
 
         let mut matrix: Vec<Vec<Fr>> = vec![vec![Fr::from(1); size]];
-        matrix.push(vec_x.clone());
+        matrix.push(vec_x);
 
         for i in 2..size {
-            let next_row = matrix[i-1].iter().zip(&vec_x).map(|(&a, &b)| {a * b}).collect();
+            let next_row = matrix[i - 1]
+                .iter()
+                .zip(&matrix[1])
+                .map(|(&a, &b)| a * b)
+                .collect();
             matrix.push(next_row);
         }
 
         let denominator = determinant(matrix.clone());
-        _ = std::mem::replace(&mut matrix[0], vec_y);
+        matrix[0] = vec_y;
         let numerator = determinant(matrix);
 
         numerator / denominator
@@ -130,8 +134,8 @@ fn determinant(mut matrix: Vec<Vec<Fr>>) -> Fr {
 
     for i in 0..n {
         let mut pivot_row = i;
-        for j in (i + 1)..n {
-            if matrix[j][i] != Fr::from(0) {
+        for (j, col) in matrix.iter().enumerate().skip(i) {
+            if col[i] != Fr::from(0) {
                 pivot_row = j;
                 break;
             }
@@ -230,7 +234,7 @@ fn main() {
     user.register(&mut rln);
     assert!(rln.shares.get(&user.pubkey()).is_some());
 
-    for _ in 0..EPOCH_LIMIT+1 {
+    for _ in 0..EPOCH_LIMIT + 1 {
         user.send(Fr::rand(rng), &mut rln);
     }
 
