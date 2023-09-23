@@ -44,7 +44,7 @@ impl RLN {
         self.shares.push((*comm, vec![], pairing_cache));
 
         println!(
-            "Rln's epoch verifying time (milliseconds): {}",
+            "Rln's epoch verifying time : {}ms",
             cur_time.elapsed().unwrap().as_millis()
         );
     }
@@ -74,8 +74,8 @@ impl RLN {
         ));
 
         println!(
-            "Rln's message verifying time (microsecs): {}",
-            cur_time.elapsed().unwrap().as_micros()
+            "Rln's message verifying time : {}ms",
+            cur_time.elapsed().unwrap().as_millis()
         );
 
         if self.shares[index].1.len() > self.limit as usize {
@@ -180,7 +180,7 @@ impl User {
         let zkp = circuit::create_zkp(self.polynomial.clone(), &self.comm, g);
 
         println!(
-            "User's epoch registering time (milliseconds): {}",
+            "User's epoch registering time: {}ms",
             cur_time.elapsed().unwrap().as_millis()
         );
 
