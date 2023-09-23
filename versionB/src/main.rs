@@ -3,7 +3,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(dead_code)]
 
-use std::vec;
+use std::{vec, time::SystemTime};
 
 use halo2::{
     arithmetic::{eval_polynomial, Field},
@@ -37,9 +37,16 @@ impl RLN {
     }
 
     fn verify_epoch_opening(&mut self, zkp: MockProver<Fr>, comm: &G1Affine) {
+        let cur_time = SystemTime::now();
+
         zkp.assert_satisfied();
         let pairing_cache = Bn256::pairing(comm, &G2Affine::generator());
         self.shares.push((*comm, vec![], pairing_cache));
+
+        println!(
+            "Rln's epoch verifying time (milliseconds): {}",
+            cur_time.elapsed().unwrap().as_millis()
+        );
     }
 
     fn new_message(
@@ -49,6 +56,8 @@ impl RLN {
         evaluation: Fr,
         proof: &G1Affine,
     ) -> Option<Fr> {
+        let cur_time = SystemTime::now();
+
         let index = self
             .shares
             .iter()
@@ -63,6 +72,11 @@ impl RLN {
             evaluation,
             &self.shares[index].2,
         ));
+
+        println!(
+            "Rln's message verifying time (microsecs): {}",
+            cur_time.elapsed().unwrap().as_micros()
+        );
 
         if self.shares[index].1.len() > self.limit as usize {
             let sk = Self::recover_key(&self.shares[index].1);
@@ -153,6 +167,8 @@ impl User {
     }
 
     fn register_epoch(&mut self, rln: &mut RLN) {
+        let cur_time = SystemTime::now();
+
         let rng = &mut thread_rng();
         self.polynomial = vec![self.sk];
         for _ in 0..rln.limit {
@@ -162,6 +178,11 @@ impl User {
         self.comm = kzg::commit(&rln.keys, &self.polynomial);
         let g = rln.keys.get_g()[0..(rln.limit + 1) as usize].to_vec();
         let zkp = circuit::create_zkp(self.polynomial.clone(), &self.comm, g);
+
+        println!(
+            "User's epoch registering time (milliseconds): {}",
+            cur_time.elapsed().unwrap().as_millis()
+        );
 
         rln.verify_epoch_opening(zkp, &self.comm);
     }
